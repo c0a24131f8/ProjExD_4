@@ -127,6 +127,7 @@ class Bomb(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+        self.state = "active"
 
     def update(self):
         """
@@ -230,7 +231,7 @@ class Enemy(pg.sprite.Sprite):
     敵機に関するクラス
     """
     imgs = [pg.image.load(f"fig/alien{i}.png") for i in range(1, 4)]
-    
+   
     def __init__(self):
         super().__init__()
         self.image = pg.transform.rotozoom(random.choice(__class__.imgs), 0, 0.8)
@@ -308,6 +309,28 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class EMP(pg.sprite.Sprite):
+    """
+    eキー押下で発動する電磁パルスに関するクラス
+    """
+    def __init__(self, emys: pg.sprite.Group, bombs: pg.sprite.Group, screen: pg.Surface):
+        super().__init__()
+        """
+        0.05秒間の電流表現として画面全体を覆う
+        敵機が弱体化、爆弾のスピードが半減し無力化される
+        """
+        ele_img = pg.Surface((WIDTH, HEIGHT))
+        pg.draw.rect(ele_img, (255, 255, 0), pg.Rect(0, 0, WIDTH, HEIGHT))
+        screen.blit(ele_img, [0, 0])
+
+        for en in emys:
+            en.interval = float('inf')
+            en.image = pg.transform.laplacian(en.image)
+        for bomb in bombs:
+            bomb.speed /= 2
+            bomb.state = "inactive"
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -320,6 +343,7 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     shields = pg.sprite.Group() # 防御壁のグループを追加
+    emps = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -346,6 +370,11 @@ def main():
                 else:
                     # 普通单发光束
                     beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_e:
+                if score.value > 20:
+                    EMP(emys, bombs, screen)
+                    score.value -= 20
+                    pg.display.update()
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -375,6 +404,16 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+            if bomb.state == "inactive":
+                continue
+            else:
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
+           
 
         # 各種スプライトグループの更新と描画
         bird.update(key_lst, screen)
