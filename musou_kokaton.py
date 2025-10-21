@@ -102,6 +102,7 @@ class Bird(pg.sprite.Sprite):
         screen.blit(self.image, self.rect)
 
 
+
 class Bomb(pg.sprite.Sprite):
     """
     爆弾に関するクラス
@@ -141,17 +142,19 @@ class Beam(pg.sprite.Sprite):
     """
     ビームに関するクラス
     """
-    def __init__(self, bird: Bird):
+    def __init__(self, bird: Bird, angle: float = 0):
         """
         ビーム画像Surfaceを生成する
         引数 bird：ビームを放つこうかとん
+        引数 angle：ビームの回転角度（默认0度）
         """
         super().__init__()
         self.vx, self.vy = bird.dire
-        angle = math.degrees(math.atan2(-self.vy, self.vx))
-        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), angle, 1.0)
-        self.vx = math.cos(math.radians(angle))
-        self.vy = -math.sin(math.radians(angle))
+        base_angle = math.degrees(math.atan2(-self.vy, self.vx))
+        final_angle = base_angle + angle  # 添加角度偏移
+        self.image = pg.transform.rotozoom(pg.image.load(f"fig/beam.png"), final_angle, 1.0)
+        self.vx = math.cos(math.radians(final_angle))
+        self.vy = -math.sin(math.radians(final_angle))
         self.rect = self.image.get_rect()
         self.rect.centery = bird.rect.centery+bird.rect.height*self.vy
         self.rect.centerx = bird.rect.centerx+bird.rect.width*self.vx
@@ -165,6 +168,33 @@ class Beam(pg.sprite.Sprite):
         self.rect.move_ip(self.speed*self.vx, self.speed*self.vy)
         if check_bound(self.rect) != (True, True):
             self.kill()
+
+
+class NeoBeam:
+    """
+    弾幕（多数ビーム）を管理するクラス
+    """
+    def __init__(self, bird: Bird, num: int):
+        """
+        弾幕を生成する
+        引数1 bird：ビームを放つこうかとん
+        引数2 num：ビーム数
+        """
+        self.bird = bird
+        self.num = num
+        
+    def gen_beams(self) -> list[Beam]:
+        """
+        複数方向のビームを生成する
+        戻り値：ビームインスタンスのリスト
+        """
+        beams = []
+        # 计算角度步长
+        step = 100 // (self.num - 1) if self.num > 1 else 0
+        # 生成多个角度的光束
+        for angle in range(-50, 51, step):
+            beams.append(Beam(self.bird, angle))
+        return beams
 
 
 class Explosion(pg.sprite.Sprite):
@@ -262,7 +292,15 @@ def main():
             if event.type == pg.QUIT:
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
-                beams.add(Beam(bird))
+                # 功能6：弹幕 - 左Shift+空格发射多方向光束
+                if key_lst[pg.K_LSHIFT]:
+                    # 发射5道光束的弹幕
+                    neo_beams = NeoBeam(bird, 5).gen_beams()
+                    for beam in neo_beams:
+                        beams.add(beam)
+                else:
+                    # 普通单发光束
+                    beams.add(Beam(bird))
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
