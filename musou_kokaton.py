@@ -223,6 +223,24 @@ class Enemy(pg.sprite.Sprite):
         self.rect.move_ip(self.vx, self.vy)
 
 
+class Gravity(pg.sprite.Sprite):
+    """
+    重力場クラス
+    """
+    def __init__(self, life: int):
+        super().__init__()
+        self.image = pg.Surface((WIDTH, HEIGHT))
+        pg.draw.rect(self.image, (0,0,0), (0, 0, WIDTH, HEIGHT))
+        self.image.set_alpha(200)
+        self.rect = self.image.get_rect()
+        self.life = life
+
+    def update(self):
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
+
 class Score:
     """
     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
@@ -253,6 +271,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    gravitys = pg.sprite.Group()
 
     tmr = 0
     clock = pg.time.Clock()
@@ -263,6 +282,10 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
+                if score.value >= 10:
+                    gravitys.add(Gravity(400))
+                    score.value -= 10
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -288,6 +311,16 @@ def main():
             pg.display.update()
             time.sleep(2)
             return
+        
+        #追加
+        for bomb in pg.sprite.groupcollide(bombs, gravitys, True, False).keys():  # 衝突した爆弾リスト
+            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+            score.value += 1  # 1点アップ
+
+        for emy in pg.sprite.groupcollide(emys, gravitys, True, False).keys():  # 衝突した爆弾リスト
+            exps.add(Explosion(emy, 50))  # 爆発エフェクト
+            score.value += 10
+            bird.change_img(6, screen)
 
         bird.update(key_lst, screen)
         beams.update()
@@ -298,6 +331,9 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        #追加
+        gravitys.update()     
+        gravitys.draw(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1
