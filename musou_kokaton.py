@@ -223,6 +223,42 @@ class Enemy(pg.sprite.Sprite):
         self.rect.move_ip(self.vx, self.vy)
 
 
+class Shield(pg.sprite.Sprite):
+    """
+    防御壁に関するクラス
+    """
+    def __init__(self, bird: Bird, life: int):
+        """
+        防御壁Surfaceを生成する
+        引数1 bird：防御壁を張るこうかとん
+        引数2 life：防御壁の発動時間
+        """
+        super().__init__()
+        vx, vy = bird.dire
+        angle = math.degrees(math.atan2(-vy, vx))
+        
+        # --- 修正箇所 START ---
+        # pg.SRCALPHAフラグを追加して、透過可能なSurfaceを作成する
+        self.image = pg.Surface((20, bird.rect.height * 2), pg.SRCALPHA)
+        pg.draw.rect(self.image, (0, 0, 255), self.image.get_rect())
+
+
+        self.image = pg.transform.rotozoom(self.image, angle, 1.0)
+            
+        self.rect = self.image.get_rect()
+        self.rect.centerx = bird.rect.centerx + bird.rect.width * vx
+        self.rect.centery = bird.rect.centery + bird.rect.height * vy
+        
+        self.life = life
+
+    def update(self):
+        """
+        発動時間を1減算し、0未満になったらインスタンスを削除する
+        """
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
 class Score:
     """
     打ち落とした爆弾，敵機の数をスコアとして表示するクラス
@@ -253,6 +289,7 @@ def main():
     beams = pg.sprite.Group()
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
+    shields = pg.sprite.Group() # 防御壁のグループを追加
 
     tmr = 0
     clock = pg.time.Clock()
@@ -263,6 +300,13 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            # Sキーで防御壁を発動
+            if event.type == pg.KEYDOWN and event.key == pg.K_s:
+                # スコアが50以上かつ、防御壁が存在しない場合
+                if score.value >= 50 and len(shields) == 0:
+                    shields.add(Shield(bird, 400)) # life=400で防御壁を生成
+                    score.value -= 50 # スコアを50消費
+
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -273,22 +317,27 @@ def main():
                 # 敵機が停止状態に入ったら，intervalに応じて爆弾投下
                 bombs.add(Bomb(emy, bird))
 
-        for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():  # ビームと衝突した敵機リスト
-            exps.add(Explosion(emy, 100))  # 爆発エフェクト
-            score.value += 10  # 10点アップ
-            bird.change_img(6, screen)  # こうかとん喜びエフェクト
+        # 各種衝突判定
+        for emy in pg.sprite.groupcollide(emys, beams, True, True).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 10
+            bird.change_img(6, screen)
 
-        for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
-            exps.add(Explosion(bomb, 50))  # 爆発エフェクト
-            score.value += 1  # 1点アップ
+        for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():
+            exps.add(Explosion(bomb, 50))
+            score.value += 1
 
-        for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+        # 爆弾と防御壁の衝突判定
+        pg.sprite.groupcollide(bombs, shields, True, False) # 爆弾のみ消滅
+
+        for bomb in pg.sprite.spritecollide(bird, bombs, True):
+            bird.change_img(8, screen)
             score.update(screen)
             pg.display.update()
             time.sleep(2)
             return
 
+        # 各種スプライトグループの更新と描画
         bird.update(key_lst, screen)
         beams.update()
         beams.draw(screen)
@@ -298,11 +347,12 @@ def main():
         bombs.draw(screen)
         exps.update()
         exps.draw(screen)
+        shields.update()      # 防御壁の更新
+        shields.draw(screen)  # 防御壁の描画
         score.update(screen)
         pg.display.update()
         tmr += 1
         clock.tick(50)
-
 
 if __name__ == "__main__":
     pg.init()
