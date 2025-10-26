@@ -384,6 +384,7 @@ def main():
                 return 0
             # if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
             #     beams.add(Beam(bird))
+                beams.add(Beam(bird))
             # Sキーで防御壁を発動
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 # スコアが50以上かつ、防御壁が存在しない場合
@@ -446,6 +447,9 @@ def main():
         #     time.sleep(2)
         #     return
 
+        # 爆弾と防御壁の衝突判定
+        pg.sprite.groupcollide(bombs, shields, True, False) # 爆弾のみ消滅
+
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
             if bird.state == "hyper":
                 #無敵時
@@ -471,6 +475,8 @@ def main():
             exps.add(Explosion(bomb, 50))
             score.value += 1
 
+
+           
 
         # 各種スプライトグループの更新と描画
         bird.update(key_lst, screen)
