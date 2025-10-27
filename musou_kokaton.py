@@ -341,6 +341,25 @@ class EMP(pg.sprite.Sprite):
             bomb.state = "inactive"
 
 
+class Gravity(pg.sprite.Sprite):
+    """
+    重力場クラス
+    """
+    def __init__(self, life: int):
+        super().__init__()
+        self.image = pg.Surface((WIDTH, HEIGHT))
+        pg.draw.rect(self.image, (0,0,0), (0, 0, WIDTH, HEIGHT))
+        self.image.set_alpha(200)
+        self.rect = self.image.get_rect()
+        self.life = life
+
+    def update(self):
+        self.life -= 1
+        if self.life < 0:
+            self.kill()
+
+
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -353,6 +372,7 @@ def main():
     exps = pg.sprite.Group()
     emys = pg.sprite.Group()
     shields = pg.sprite.Group() # 防御壁のグループを追加
+    gravitys = pg.sprite.Group() #gravityグループ追加
     emps = pg.sprite.Group()
 
     tmr = 0
@@ -363,6 +383,7 @@ def main():
             if event.type == pg.QUIT:
                 return 0
             # if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
+            #     beams.add(Beam(bird))
                 beams.add(Beam(bird))
             # Sキーで防御壁を発動
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
@@ -385,6 +406,10 @@ def main():
                     EMP(emys, bombs, screen)
                     score.value -= 20
                     pg.display.update()
+            if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
+                if score.value >= 200:
+                    gravitys.add(Gravity(400))
+                    score.value -= 200
         screen.blit(bg_img, [0, 0])
 
 
@@ -421,6 +446,10 @@ def main():
         #     pg.display.update()
         #     time.sleep(2)
         #     return
+
+        # 爆弾と防御壁の衝突判定
+        pg.sprite.groupcollide(bombs, shields, True, False) # 爆弾のみ消滅
+
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
             if bird.state == "hyper":
                 #無敵時
@@ -436,6 +465,17 @@ def main():
                 pg.display.update()
                 time.sleep(2)
                 return
+            
+        for emy in pg.sprite.groupcollide(emys, gravitys, True, False).keys():
+            exps.add(Explosion(emy, 100))
+            score.value += 10
+            bird.change_img(6, screen)
+
+        for bomb in pg.sprite.groupcollide(bombs, gravitys, True, False).keys():
+            exps.add(Explosion(bomb, 50))
+            score.value += 1
+
+
            
 
         # 各種スプライトグループの更新と描画
@@ -450,6 +490,8 @@ def main():
         exps.draw(screen)
         shields.update()      # 防御壁の更新
         shields.draw(screen)  # 防御壁の描画
+        gravitys.update()     # gravity更新
+        gravitys.draw(screen)
         score.update(screen)
         pg.display.update()
         tmr += 1
@@ -460,3 +502,10 @@ if __name__ == "__main__":
     main()
     pg.quit()
     sys.exit()
+
+
+#重力場:Enterキー
+#EMP:eキー
+#防御壁:スペースキー
+#弾幕:左シフトキー押しながらスペースキー
+#無敵状態:右シフトキー
